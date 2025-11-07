@@ -18,12 +18,12 @@ library(themis)
 library(beepr)
 
 # Import train and test data
-trainData <- vroom("GitHub/GhostsGhoulsGoblins/train.csv")
-testData <- vroom("GitHub/GhostsGhoulsGoblins/test.csv")
+trainData <- vroom("train.csv")
+testData <- vroom("test.csv")
 
 # Recipe
-ggg_recipe <- recipe(type ~ bone_length + rotting_flesh + hair_length + has_soul + color,  
-                     data = trainData) %>%
+# ggg_recipe <- recipe(type ~ bone_length + rotting_flesh + hair_length + has_soul + color,  
+                     data = trainData) #%>%
 
   
 # Prediction
