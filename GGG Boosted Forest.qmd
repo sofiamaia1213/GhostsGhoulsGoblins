@@ -1,0 +1,105 @@
+---
+title: "Bike Share Workflow Quarto"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(vroom)
+library(glue)
+library(glmnet)
+library(rpart)
+library(ranger)
+library(bonsai)
+library(lightgbm)
+```
+
+```{r}
+train_data <- vroom("train.csv")
+test_data <- vroom("test.csv")
+```
+
+```{r}
+my_recipe <- recipe(type ~ ., data=train_data) |>
+  step_rm("id") |>
+  step_dummy("color")
+```
+
+```{r}
+#prepped_recipe <- prep(my_recipe) # Sets up the preprocessing using myDataSet
+#train_data_baked <- bake(prepped_recipe, new_data=train_data)
+
+#vroom_write(x=train_data, file=glue("./Baked_Dataset.csv"), delim=",")
+```
+
+```{r}
+# boost_model <- boost_tree(tree_depth=tune(), trees=tune(), learn_rate=tune()) %>%
+#   set_engine("lightgbm") %>% #or "xgboost" but lightgbm is faster
+#   set_mode("regression")
+
+boost_model <- boost_tree(
+  trees = tune(),           # number of trees
+  tree_depth = tune(),      # max depth of trees
+  min_n = tune(),           # minimum observations in node
+  loss_reduction = tune(),  # minimum loss reduction for split
+  sample_size = tune(),     # proportion of data for each tree
+  mtry = tune(),            # number of predictors randomly sampled
+  learn_rate = tune()       # learning rate (eta)
+) |>
+  set_engine("lightgbm") |>
+  set_mode("classification")
+```
+
+```{r}
+preg_wf <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(boost_model)
+
+grid_of_tuning_params <- grid_space_filling(
+  trees(), 
+  tree_depth(), 
+  min_n(), 
+  loss_reduction(), 
+  sample_prop(),  
+  finalize(mtry(), train_data),  
+  learn_rate(), 
+  size = 100  # Only 30 combinations instead of 78k!
+)
+
+folds <- vfold_cv(train_data, v = 5, repeats=1)
+```
+
+```{r}
+CV_results <- preg_wf %>%
+  tune_grid(resamples=folds,
+  grid=grid_of_tuning_params,
+  metrics=metric_set(accuracy))
+
+```
+
+```{r}
+bestTune <- CV_results %>%
+  select_best(metric="accuracy")
+```
+
+```{r}
+final_wf <- preg_wf %>%
+  finalize_workflow(bestTune) %>%
+  fit(data=train_data)
+
+## Predict7
+tree_predictions <- final_wf %>%
+  predict(new_data = test_data)
+
+```
+
+```{r}
+## Format the Predictions for Submission to Kaggle
+kaggle_submission <- tree_predictions %>%
+  bind_cols(., test_data) %>% #Bind predictions with test data
+  select(id, .pred_class) %>% #Just keep datetime and prediction variables
+  rename(type=.pred_class) #rename pred to count (for submission to Kaggle)
+
+vroom_write(x=kaggle_submission, file="./LightGBM_Predictions.csv", delim=",")
+```
