@@ -26,6 +26,26 @@ trainData <- vroom("GitHub/GhostsGhoulsGoblins/train.csv")
 testData <- vroom("GitHub/GhostsGhoulsGoblins/test.csv")
 trainData$type <- as.factor(trainData$type)
 
+# --- Fix column types ---
+trainData <- trainData %>%
+  mutate(
+    type = as.factor(type),
+    color = as.factor(color),
+    bone_length = as.numeric(bone_length),
+    rotting_flesh = as.numeric(rotting_flesh),
+    hair_length = as.numeric(hair_length),
+    has_soul = as.numeric(has_soul)
+  )
+
+testData <- testData %>%
+  mutate(
+    color = as.factor(color),
+    bone_length = as.numeric(bone_length),
+    rotting_flesh = as.numeric(rotting_flesh),
+    hair_length = as.numeric(hair_length),
+    has_soul = as.numeric(has_soul)
+  )
+
 # Recipe
 ggg_recipe <- recipe(type ~ bone_length + rotting_flesh + hair_length + has_soul + color,  
                      data = trainData) %>%
@@ -36,10 +56,10 @@ ggg_recipe <- recipe(type ~ bone_length + rotting_flesh + hair_length + has_soul
 auto_model <- 
   auto_ml() %>%
   set_engine("h2o",
-             max_runtime_secs = 300,   # run for up to 30 minutes
+             max_runtime_secs = 300,   
              max_models = 50,
              seed = 17,
-             stopping_metric = "logloss") %>%  # "auc" isn’t ideal for multiclass
+             stopping_metric = "logloss") %>%  # 
   set_mode("classification")
 
 # --- Workflow ---
